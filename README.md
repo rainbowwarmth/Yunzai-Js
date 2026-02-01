@@ -5,7 +5,7 @@
 
 ### 安装
 ```
-curl -o "./plugins/example/zzz-gcLog.js" "https://cnb.cool/rainbowwarmth/resources/-/git/raw/main/Yunzai-Js/zzz-gcLog.js"
+curl -o "./plugins/example/zzz-gcLog.js" "https://cdn.jsdelivr.net/gh/rainbowwarmth/Yunzai-Js@main/zzz-gcLog.js"
 ```
 ### 简介
 为ZZZ-Plugin的抽卡记录在uigfv4标准上实现导入导出记录
