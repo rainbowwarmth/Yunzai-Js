@@ -9,3 +9,7 @@ curl -o "./plugins/example/zzz-gcLog.js" "https://cdn.jsdelivr.net/gh/rainbowwar
 ```
 ### 简介
 为ZZZ-Plugin的抽卡记录在uigfv4标准上实现导入导出记录
+
+### 使用方法
+1. %导入记录
+2. %导出记录
