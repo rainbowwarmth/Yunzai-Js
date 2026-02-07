@@ -32,7 +32,7 @@ export class ZzzGachaUigf extends plugin {
       event: "message",
       priority: 300,
       rule: [
-        { reg: "^#绝区零导出记录$", fnc: "zzzToUigf" },
+        { reg: "^#绝区零(强制)?导出记录$", fnc: "zzzToUigf" },
         { reg: "^#绝区零(强制)?导入记录$", fnc: "uigfLogJson" }
       ]
     })
@@ -50,6 +50,14 @@ export class ZzzGachaUigf extends plugin {
 
   async zzzToUigf() {
     const e = this.e
+    this.e.isForce = !!e.msg.includes("强制")
+    if (e.isGroup && !this.e.isForce) {
+      return await e.reply(
+        `建议私聊导出，群聊请发送【#绝区零强制导出记录】`,
+        false,
+        { at: true }
+      )
+    }
     let uigfSaveFile = ""
     try {
       this.User = await NoteUser.create(e)
@@ -85,7 +93,7 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导入，群聊请发送【%强制导入记录uigf】`,
+        `建议私聊导入，群聊请发送【%强制导入记录】`,
         false,
         { at: true }
       )
