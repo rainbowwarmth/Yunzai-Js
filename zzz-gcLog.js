@@ -53,7 +53,7 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导出，群聊请发送【#绝区零强制导出记录】`,
+        `建议私聊导出，群聊请发送【%强制导出记录】`,
         false,
         { at: true }
       )
