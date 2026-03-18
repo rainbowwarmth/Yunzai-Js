@@ -2,7 +2,6 @@ import plugin from "../../lib/plugins/plugin.js"
 import fs from "node:fs"
 import path from "node:path"
 import common from "../../lib/common/common.js"
-import cfg from "../../lib/config/config.js"
 import NoteUser from "../genshin/model/mys/NoteUser.js"
 
 const GACHA_BASE_DIR = path.join(process.cwd(), "plugins", "ZZZ-Plugin", "data", "gacha")
@@ -29,7 +28,7 @@ const PLATFORMS = ["NapCat.Onebot", "LLOneBot"]
 
 /**
  * 绝区零抽卡记录导入/导出记录插件
- * 指令：%导出记录 / %(强制)导入记录
+ * 指令：#绝区零导出记录 / #绝区零(强制)导入记录
  */
 export class ZzzGachaUigf extends plugin {
   constructor() {
@@ -38,7 +37,8 @@ export class ZzzGachaUigf extends plugin {
       dsc: "ZZZ-Plugin抽卡记录导入/导出记录",
       event: "message",
       priority: 300,
-      rule: [{
+      rule: [
+        {
           reg: "^#绝区零(强制)?导出记录$",
           fnc: "zzzToUigf"
         },
@@ -56,9 +56,7 @@ export class ZzzGachaUigf extends plugin {
       const needCreateDirs = [GACHA_BASE_DIR, UIGF_SAVE_DIR, TEMP_FILE_DIR]
       for (const dir of needCreateDirs) {
         if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, {
-            recursive: true
-          })
+          fs.mkdirSync(dir, { recursive: true })
           logger.debug(`[绝区零][导入/导出记录] 自动创建目录：${dir}`)
         } else {
           logger.debug(`[绝区零][导入/导出记录] 目录已存在：${dir}`)
@@ -75,10 +73,8 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导出，群聊请发送【%强制导出记录】`,
-        false, {
-          at: true
-        }
+        `建议私聊导出，群聊请发送【#绝区零强制导出记录】`,
+        false, { at: true }
       )
     }
     let uigfSaveFile = ""
@@ -92,17 +88,19 @@ export class ZzzGachaUigf extends plugin {
       }
 
       const gachaFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
-      logger.debug(`[绝区零][导出记录] 尝试读取抽卡记录文件：${gachaFile}`)
+      logger.debug(`[绝区零][导出记录] ��试读取抽卡记录文件：${gachaFile}`)
       if (!fs.existsSync(gachaFile)) {
         logger.debug(`[绝区零][导出记录] 未找到抽卡记录文件（UID：${uid}）`)
         return await e.reply(`❌ 未找到抽卡记录（UID：${uid}）`, true)
       }
+
       const rawGachaData = JSON.parse(fs.readFileSync(gachaFile, 'utf-8'))
       logger.debug(`[绝区零][导出记录] 读取到抽卡记录，开始转换为UIGF格式`)
       const uigfData = this.convertToUigfV4(rawGachaData, uid)
       uigfSaveFile = this.createUigfFile(uigfData, uid)
       logger.debug(`[绝区零][导出记录] UIGF文件已生成：${uigfSaveFile}`)
       await e.reply(`✅ 抽卡记录已导出为UIGFv4格式（UID：${uid}）`, true)
+
       if (e.group?.sendFile) {
         logger.debug(`[绝区零][导出记录] 群聊发送文件：${uigfSaveFile}`)
         await e.group.sendFile(uigfSaveFile)
@@ -126,34 +124,29 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导入，群聊请发送【%强制导入记录】`,
-        false, {
-          at: true
-        }
+        `建议私聊导入，群聊请发送【#绝区零强制导入记录】`,
+        false, { at: true }
       )
     }
     this.setContext("zzzLogJsonFile")
-    await e.reply("请发送UIGFv4格式的JSON文件", false, {
-      at: true
-    })
+    await e.reply("请发送UIGFv4格式的JSON文件", false, { at: true })
     logger.debug(`[绝区零][导入记录] 已设置上下文，等待用户发送文件`)
   }
 
   async zzzLogJsonFile() {
     const e = this.e
     logger.debug(`[绝区零][导入记录] 收到用户${e.user_id}的文件消息：`, JSON.stringify(e.file, null, 2))
-    let fileName = ''
-    fileName = e.file?.name || e.file?.file || e.message[0].file || e.message[0].name || ''
+
+    let fileName = e.file?.name || e.file?.file || e.message[0]?.file || e.message[0]?.name || ''
     if (!fileName && e.raw_message) {
       const cqFileMatch = e.raw_message.match(/\[CQ:file,.*?file=([^,]+).*?\]/)
-      if (cqFileMatch && cqFileMatch[1]) {
+      if (cqFileMatch?.[1]) {
         fileName = cqFileMatch[1]
         logger.debug(`[绝区零][导入记录] 从CQ码解析出文件名：${fileName}`)
       }
     }
 
     const isJsonFile = fileName.toLowerCase().endsWith('.json')
-
     if (!e.file || !isJsonFile) {
       logger.debug(`[绝区零][导入记录] 用户${e.user_id}发送的不是JSON文件，实际文件名：${fileName}`)
       await e.reply("❌ 请发送有效的UIGF JSON文件！", true)
@@ -164,10 +157,10 @@ export class ZzzGachaUigf extends plugin {
     let tempFile = ""
     try {
       const isOneBot = PLATFORMS.includes(e.bot?.version?.app_name)
-      let fileid = e.file?.file_id || e.file?.id || e.message[0].file_id || e.message[0].id || ''
+      const fileid = e.file?.file_id || e.file?.id || e.message[0]?.file_id || e.message[0]?.id || ''
       tempFile = path.join(TEMP_FILE_DIR, fileName || `zzz_uigf_${e.user_id}.json`)
       this.ensureDirectoryExists(path.dirname(tempFile))
-      logger.debug(`[绝区零][导入记录] 文件信息 - fileid: ${fileid}, 解析到的文件名：${fileName}, isOneBot: ${isOneBot}`)
+      logger.debug(`[绝区零][导入记录] 文件信息 - fileid: ${fileid}, 文件名：${fileName}, isOneBot: ${isOneBot}`)
       logger.debug(`[绝区零][导入记录] 临时文件路径：${tempFile}`)
 
       if (isOneBot) {
@@ -175,24 +168,18 @@ export class ZzzGachaUigf extends plugin {
         let fileUrl = null
         try {
           if (e.message_type === 'group' || e.isGroup) {
-            logger.debug(`[绝区零][导入记录] 调用 get_group_file_url 接口，群号：${e.group_id}，file_id：${fileid}`)
+            logger.debug(`[绝区零][导入记录] 调用 get_group_file_url，群号：${e.group_id}，file_id：${fileid}`)
             const groupFileRes = await e.bot.sendApi("get_group_file_url", {
               group_id: Number(e.group_id),
               file_id: fileid
             })
             logger.debug(`[绝区零][导入记录] get_group_file_url 返回：`, JSON.stringify(groupFileRes, null, 2))
-            if (groupFileRes?.data?.url) {
-              fileUrl = groupFileRes.data.url
-            }
+            if (groupFileRes?.data?.url) fileUrl = groupFileRes.data.url
           } else {
-            logger.debug(`[绝区零][导入记录] 调用 get_private_file_url 接口，file_id：${fileid}`)
-            const privateFileRes = await e.bot.sendApi("get_private_file_url", {
-              file_id: fileid
-            })
+            logger.debug(`[绝区零][导入记录] 调用 get_private_file_url，file_id：${fileid}`)
+            const privateFileRes = await e.bot.sendApi("get_private_file_url", { file_id: fileid })
             logger.debug(`[绝区零][导入记录] get_private_file_url 返回：`, JSON.stringify(privateFileRes, null, 2))
-            if (privateFileRes?.data?.url) {
-              fileUrl = privateFileRes.data.url
-            }
+            if (privateFileRes?.data?.url) fileUrl = privateFileRes.data.url
           }
         } catch (urlErr) {
           console.warn(`[绝区零][导入记录] 获取文件URL失败，尝试降级方案：`, urlErr.message)
@@ -205,17 +192,13 @@ export class ZzzGachaUigf extends plugin {
           logger.debug(`[绝区零][导入记录] 文件下载完成：${tempFile}`)
         } else {
           logger.debug(`[绝区零][导入记录] 降级调用 get_file 接口`)
-          const fileRes = await e.bot.sendApi("get_file", {
-            file_id: fileid
-          })
-          logger.debug(`[绝区零][导入记录] get_file接口返回：`, JSON.stringify(fileRes, null, 2))
-
+          const fileRes = await e.bot.sendApi("get_file", { file_id: fileid })
+          logger.debug(`[绝区零][导入记录] get_file 返回：`, JSON.stringify(fileRes, null, 2))
           if (!fileRes?.data) throw new Error("获取文件数据失败")
 
           if (fileRes.data.base64) {
             logger.debug(`[绝区零][导入记录] 从base64解码文件`)
-            const decodedData = Buffer.from(fileRes.data.base64, "base64")
-            fs.writeFileSync(tempFile, decodedData)
+            fs.writeFileSync(tempFile, Buffer.from(fileRes.data.base64, "base64"))
           } else if (fileRes.data.file && fs.existsSync(fileRes.data.file)) {
             logger.debug(`[绝区零][导入记录] 复制文件：${fileRes.data.file} → ${tempFile}`)
             fs.copyFileSync(fileRes.data.file, tempFile)
@@ -232,7 +215,6 @@ export class ZzzGachaUigf extends plugin {
           else throw new Error("无法获取文件下载链接")
         }
         logger.debug(`[绝区零][导入记录] 文件下载链接：${fileUrl}`)
-
         const downRes = await common.downFile(fileUrl, tempFile)
         if (!downRes) throw new Error("文件下载失败")
         logger.debug(`[绝区零][导入记录] 文件下载完成：${tempFile}`)
@@ -241,6 +223,7 @@ export class ZzzGachaUigf extends plugin {
       const uigfData = JSON.parse(fs.readFileSync(tempFile, "utf8"))
       logger.debug(`[绝区零][导入记录] 读取UIGF文件完成，开始校验格式`)
       this.checkUigfFormat(uigfData)
+
       this.User = await NoteUser.create(e)
       const uid = this.User?.getUid('zzz')
       if (!uid || !/^\d+$/.test(uid)) {
@@ -250,27 +233,24 @@ export class ZzzGachaUigf extends plugin {
 
       const newZzzData = this.convertUigfToZzz(uigfData, uid)
       const targetFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
-      const finalZzzData = fs.existsSync(targetFile) ?
-        this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData) :
-        newZzzData
+      const finalZzzData = fs.existsSync(targetFile)
+        ? this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData)
+        : newZzzData
 
       fs.writeFileSync(targetFile, JSON.stringify(finalZzzData, null, 2), 'utf-8')
 
       let msgArr = []
       let total = 0
-      for (let pool of POOL_KEYS) {
-        let cnt = newZzzData[pool]?.length || 0
+      for (const pool of POOL_KEYS) {
+        const cnt = newZzzData[pool]?.length || 0
         if (cnt > 0) {
           msgArr.push(`${pool}：${cnt}条`)
           total += cnt
         }
       }
 
-      let replyMsg = [`✅ UIGF抽卡记录导入成功（UID：${uid}）`, ...msgArr, `总计：${total}条`].join("\n")
-      await e.reply(replyMsg, true)
-      if (e.isGroup) await e.reply("已收到文件，请撤回", false, {
-        at: true
-      })
+      await e.reply([`✅ UIGF抽卡记录导入成功（UID：${uid}）`, ...msgArr, `总计：${total}条`].join("\n"), true)
+      if (e.isGroup) await e.reply(`已收到${fileName}文件，请撤回`, false, { at: true })
 
     } catch (err) {
       await e.reply(`❌ 导入失败：${err.message}`, true)
@@ -280,18 +260,6 @@ export class ZzzGachaUigf extends plugin {
         fs.unlinkSync(tempFile)
       }
     }
-  }
-
-  getFileIdAndName(e) {
-    let fileid, filename
-    if (cfg.package?.name === 'miao-yunzai') {
-      fileid = e.message_type === "private" ? e.message[0].file_id : e.message[0].id
-      filename = e.message_type === "private" ? e.message[0].file : e.message[0].name
-    } else {
-      fileid = e.message_type === "private" ? e.file.file_id : e.file.id
-      filename = e.message_type === "private" ? e.file.file : e.file.name
-    }
-    return [fileid, filename]
   }
 
   /**
@@ -311,7 +279,7 @@ export class ZzzGachaUigf extends plugin {
    */
   checkUigfFormat(uigfData) {
     if (!uigfData?.info || !uigfData?.nap || !Array.isArray(uigfData.nap)) {
-      throw new Error('UIGF格式不合法，缺少info/nap')
+      throw new Error('UIGF格式不合法，缺少info/nap字段')
     }
     const napItem = uigfData.nap[0]
     if (!napItem?.list || napItem.list.length === 0) {
@@ -320,40 +288,41 @@ export class ZzzGachaUigf extends plugin {
   }
 
   /**
-   * UIGF → 绝区零
+   * UIGF → 绝区零本地格式
    */
   convertUigfToZzz(uigfData, uid) {
-    const zzzData = POOL_KEYS.reduce((obj, key) => ({
-      ...obj,
-      [key]: []
-    }), {})
-    const uigfList = uigfData.nap[0].list
-    uigfList.forEach(item => {
-      const gachaType = item.uigf_gacha_type || item.gacha_type
-      const targetPool = GACHA_TYPE_TO_POOL[String(gachaType)]
-      if (targetPool) zzzData[targetPool].push({
-        ...item,
-        uid
-      })
-    })
+    const zzzData = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
+    let list = uigfData.nap[0].list
+    if (list.length > 1) {
+      const firstTime = new Date(list[0].time).getTime()
+      const lastTime = new Date(list[list.length - 1].time).getTime()
+      if (firstTime < lastTime) list = list.slice().reverse()
+    }
+
+    for (const item of list) {
+      const gachaType = String(item.gacha_type)
+      const targetPool = GACHA_TYPE_TO_POOL[gachaType]
+      if (!targetPool) continue
+      zzzData[targetPool].push({ ...item, uid, gacha_type: gachaType })
+    }
+
     const total = Object.values(zzzData).reduce((s, arr) => s + arr.length, 0)
     if (total === 0) throw new Error('无匹配的绝区零抽卡记录')
     return zzzData
   }
 
   /**
-   * 合并去重 + 导入时按新→旧倒序排序
+   * 合并去重 + 统一倒序（新→旧）
    */
   mergeGachaData(oldData, newData) {
-    const merged = POOL_KEYS.reduce((obj, key) => ({
-      ...obj,
-      [key]: []
-    }), {})
+    const merged = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
     POOL_KEYS.forEach(pool => {
       const all = [...(oldData[pool] || []), ...(newData[pool] || [])]
       const map = new Map()
       all.forEach(item => item.id && !map.has(item.id) && map.set(item.id, item))
-      merged[pool] = Array.from(map.values()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+      merged[pool] = Array.from(map.values()).sort(
+        (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+      )
     })
     return merged
   }
@@ -369,22 +338,27 @@ export class ZzzGachaUigf extends plugin {
   }
 
   /**
-   * 绝区零 → UIGFv4，导出时按旧→新正序排序
+   * 绝区零本地格式 → UIGFv4
    */
   convertToUigfV4(rawGacha, uid) {
-    const list = POOL_KEYS.reduce((l, k) => l.concat(rawGacha[k] || []), [])
+    let list = []
+    for (const poolKey of POOL_KEYS) {
+      const gachaType = Object.entries(GACHA_TYPE_TO_POOL).find(([k, v]) => v === poolKey)?.[0]
+      if (!gachaType) continue
+      const arr = (rawGacha[poolKey] || []).map(item => ({
+        ...item,
+        gacha_type: gachaType,
+        uid
+      }))
+      list = list.concat(arr)
+    }
     if (list.length === 0) throw new Error('无有效抽卡记录')
-    const sortedList = list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-    
-    const uigfList = sortedList.map(item => ({
-      ...item,
-      uigf_gacha_type: item.gacha_type
-    }))
-    
+    list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+
     const now = new Date()
     const exportTime = new Date(now.getTime() + (8 * 60 - now.getTimezoneOffset()) * 60 * 1000)
       .toISOString().slice(0, 19).replace('T', ' ')
-      
+
     return {
       info: {
         export_time: exportTime,
@@ -395,7 +369,7 @@ export class ZzzGachaUigf extends plugin {
         uid,
         timezone: 8,
         lang: 'zh-cn',
-        list: uigfList
+        list
       }]
     }
   }
