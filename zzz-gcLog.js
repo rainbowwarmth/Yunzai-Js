@@ -2,20 +2,28 @@ import plugin from "../../lib/plugins/plugin.js"
 import fs from "node:fs"
 import path from "node:path"
 import common from "../../lib/common/common.js"
+import cfg from "../../lib/config/config.js"
 import NoteUser from "../genshin/model/mys/NoteUser.js"
 
 const GACHA_BASE_DIR = path.join(process.cwd(), "plugins", "ZZZ-Plugin", "data", "gacha")
 const UIGF_SAVE_DIR = path.join(process.cwd(), "temp", "ZZZ-Plugin", "gacha")
 const TEMP_FILE_DIR = path.join(process.cwd(), "temp", "ZZZ-Plugin", "temp")
-const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "plugins", "ZZZ-Plugin",'package.json'), 'utf-8'))
+const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "plugins", "ZZZ-Plugin", 'package.json'), 'utf-8'))
 const POOL_KEYS = ['音擎频段', '独家频段', '常驻频段', '邦布频段', '音擎回响', '独家重映']
 const GACHA_TYPE_TO_POOL = {
-  '1': '常驻频段', '2': '独家频段', '3': '音擎频段',
-  '5': '邦布频段', '102': '独家重映', '103': '音擎回响'
+  '1': '常驻频段',
+  '2': '独家频段',
+  '3': '音擎频段',
+  '5': '邦布频段',
+  '102': '独家重映',
+  '103': '音擎回响'
 }
 const UIGF_CONFIG = {
-  export_app: "ZZZ-Plugin", export_app_version: pkg.version,
-  version: 'v4.0', timezone: 8, lang: 'zh-cn'
+  export_app: "ZZZ-Plugin",
+  export_app_version: pkg.version,
+  version: 'v4.0',
+  timezone: 8,
+  lang: 'zh-cn'
 }
 const PLATFORMS = ["NapCat.Onebot", "LLOneBot"]
 
@@ -30,13 +38,16 @@ export class ZzzGachaUigf extends plugin {
       dsc: "ZZZ-Plugin抽卡记录导入/导出记录",
       event: "message",
       priority: 300,
-      rule: [
-        { reg: "^#绝区零(强制)?导出记录$", fnc: "zzzToUigf" },
-        { reg: "^#绝区零(强制)?导入记录$", fnc: "uigfLogJson" }
+      rule: [{
+          reg: "^#绝区零(强制)?导出记录$",
+          fnc: "zzzToUigf"
+        },
+        {
+          reg: "^#绝区零(强制)?导入记录$",
+          fnc: "uigfLogJson"
+        }
       ]
     })
-    
-    this.init()
   }
 
   async init() {
@@ -45,7 +56,9 @@ export class ZzzGachaUigf extends plugin {
       const needCreateDirs = [GACHA_BASE_DIR, UIGF_SAVE_DIR, TEMP_FILE_DIR]
       for (const dir of needCreateDirs) {
         if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true })
+          fs.mkdirSync(dir, {
+            recursive: true
+          })
           logger.debug(`[绝区零][导入/导出记录] 自动创建目录：${dir}`)
         } else {
           logger.debug(`[绝区零][导入/导出记录] 目录已存在：${dir}`)
@@ -63,14 +76,14 @@ export class ZzzGachaUigf extends plugin {
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
         `建议私聊导出，群聊请发送【%强制导出记录】`,
-        false,
-        { at: true }
+        false, {
+          at: true
+        }
       )
     }
     let uigfSaveFile = ""
     try {
       logger.debug(`[绝区零][导出记录] 用户${e.user_id}触发导出指令，群聊/私聊：${e.isGroup ? '群聊' : '私聊'}`)
-      
       this.User = await NoteUser.create(e)
       const uid = this.User?.getUid('zzz')
       if (!uid || !/^\d+$/.test(uid)) {
@@ -80,12 +93,10 @@ export class ZzzGachaUigf extends plugin {
 
       const gachaFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
       logger.debug(`[绝区零][导出记录] 尝试读取抽卡记录文件：${gachaFile}`)
-      
       if (!fs.existsSync(gachaFile)) {
         logger.debug(`[绝区零][导出记录] 未找到抽卡记录文件（UID：${uid}）`)
         return await e.reply(`❌ 未找到抽卡记录（UID：${uid}）`, true)
       }
-      
       const rawGachaData = JSON.parse(fs.readFileSync(gachaFile, 'utf-8'))
       logger.debug(`[绝区零][导出记录] 读取到抽卡记录，开始转换为UIGF格式`)
       const uigfData = this.convertToUigfV4(rawGachaData, uid)
@@ -99,10 +110,9 @@ export class ZzzGachaUigf extends plugin {
         logger.debug(`[绝区零][导出记录] 私聊发送文件：${uigfSaveFile}`)
         await e.friend.sendFile(uigfSaveFile)
       }
-
     } catch (err) {
-      console.error('[绝区零][导出记录] 导出失败：', err.stack)
       await e.reply(`❌ 导出失败：${err.message}`, true)
+      logger.error('[绝区零][导入/导出记录] 导出错误：', err)
     } finally {
       if (uigfSaveFile && fs.existsSync(uigfSaveFile)) {
         fs.unlinkSync(uigfSaveFile)
@@ -114,19 +124,18 @@ export class ZzzGachaUigf extends plugin {
   async uigfLogJson() {
     const e = this.e
     this.e.isForce = !!e.msg.includes("强制")
-    logger.debug(`[绝区零][导入记录] 用户${e.user_id}触发导入指令，强制导入：${this.e.isForce}`)
-    
     if (e.isGroup && !this.e.isForce) {
-      logger.debug(`[绝区零][导入记录] 群聊非强制导入，提示用户私聊或使用强制指令`)
       return await e.reply(
         `建议私聊导入，群聊请发送【%强制导入记录】`,
-        false,
-        { at: true }
+        false, {
+          at: true
+        }
       )
     }
-    
     this.setContext("zzzLogJsonFile")
-    await e.reply("请发送UIGFv4格式的JSON文件", false, { at: true })
+    await e.reply("请发送UIGFv4格式的JSON文件", false, {
+      at: true
+    })
     logger.debug(`[绝区零][导入记录] 已设置上下文，等待用户发送文件`)
   }
 
@@ -142,18 +151,17 @@ export class ZzzGachaUigf extends plugin {
         logger.debug(`[绝区零][导入记录] 从CQ码解析出文件名：${fileName}`)
       }
     }
-    
+
     const isJsonFile = fileName.toLowerCase().endsWith('.json')
-    
+
     if (!e.file || !isJsonFile) {
       logger.debug(`[绝区零][导入记录] 用户${e.user_id}发送的不是JSON文件，实际文件名：${fileName}`)
       await e.reply("❌ 请发送有效的UIGF JSON文件！", true)
       return false
     }
-    
+
     this.finish("zzzLogJsonFile")
     let tempFile = ""
-    
     try {
       const isOneBot = PLATFORMS.includes(e.bot?.version?.app_name)
       let fileid = e.file?.file_id || e.file?.id || e.message[0].file_id || e.message[0].id || ''
@@ -197,11 +205,13 @@ export class ZzzGachaUigf extends plugin {
           logger.debug(`[绝区零][导入记录] 文件下载完成：${tempFile}`)
         } else {
           logger.debug(`[绝区零][导入记录] 降级调用 get_file 接口`)
-          const fileRes = await e.bot.sendApi("get_file", { file_id: fileid })
+          const fileRes = await e.bot.sendApi("get_file", {
+            file_id: fileid
+          })
           logger.debug(`[绝区零][导入记录] get_file接口返回：`, JSON.stringify(fileRes, null, 2))
-          
+
           if (!fileRes?.data) throw new Error("获取文件数据失败")
-          
+
           if (fileRes.data.base64) {
             logger.debug(`[绝区零][导入记录] 从base64解码文件`)
             const decodedData = Buffer.from(fileRes.data.base64, "base64")
@@ -222,11 +232,12 @@ export class ZzzGachaUigf extends plugin {
           else throw new Error("无法获取文件下载链接")
         }
         logger.debug(`[绝区零][导入记录] 文件下载链接：${fileUrl}`)
-        
+
         const downRes = await common.downFile(fileUrl, tempFile)
         if (!downRes) throw new Error("文件下载失败")
         logger.debug(`[绝区零][导入记录] 文件下载完成：${tempFile}`)
       }
+
       const uigfData = JSON.parse(fs.readFileSync(tempFile, "utf8"))
       logger.debug(`[绝区零][导入记录] 读取UIGF文件完成，开始校验格式`)
       this.checkUigfFormat(uigfData)
@@ -236,15 +247,15 @@ export class ZzzGachaUigf extends plugin {
         logger.debug(`[绝区零][导入记录] 用户${e.user_id}未绑定UID或UID格式错误：${uid}`)
         return await e.reply('❌ 未绑定绝区零UID，请先完成绑定', true)
       }
-      const newZzzData = this.convertUigfToZzz(uigfData, uid)
-      logger.debug(`[绝区零][导入记录] UIGF数据转换完成，开始合并数据`)
 
+      const newZzzData = this.convertUigfToZzz(uigfData, uid)
       const targetFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
-      const finalZzzData = fs.existsSync(targetFile)
-        ? this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData)
-        : newZzzData
+      const finalZzzData = fs.existsSync(targetFile) ?
+        this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData) :
+        newZzzData
+
       fs.writeFileSync(targetFile, JSON.stringify(finalZzzData, null, 2), 'utf-8')
-      logger.debug(`[绝区零][导入记录] 抽卡记录已保存到：${targetFile}`)
+
       let msgArr = []
       let total = 0
       for (let pool of POOL_KEYS) {
@@ -257,20 +268,30 @@ export class ZzzGachaUigf extends plugin {
 
       let replyMsg = [`✅ UIGF抽卡记录导入成功（UID：${uid}）`, ...msgArr, `总计：${total}条`].join("\n")
       await e.reply(replyMsg, true)
-      logger.debug(`[绝区零][导入记录] 导入成功，总计${total}条记录`)
-      
-      if (e.isGroup) await e.reply("已收到文件，请撤回", false, { at: true })
+      if (e.isGroup) await e.reply("已收到文件，请撤回", false, {
+        at: true
+      })
 
     } catch (err) {
-      console.error('[绝区零][导入记录] 导入失败：', err.stack)
       await e.reply(`❌ 导入失败：${err.message}`, true)
+      logger.error('[绝区零][导入/导出记录] 导入错误：', err)
     } finally {
-      // 删除临时文件
       if (tempFile && fs.existsSync(tempFile)) {
         fs.unlinkSync(tempFile)
-        logger.debug(`[绝区零][导入记录] 已删除临时文件：${tempFile}`)
       }
     }
+  }
+
+  getFileIdAndName(e) {
+    let fileid, filename
+    if (cfg.package?.name === 'miao-yunzai') {
+      fileid = e.message_type === "private" ? e.message[0].file_id : e.message[0].id
+      filename = e.message_type === "private" ? e.message[0].file : e.message[0].name
+    } else {
+      fileid = e.message_type === "private" ? e.file.file_id : e.file.id
+      filename = e.message_type === "private" ? e.file.file : e.file.name
+    }
+    return [fileid, filename]
   }
 
   /**
@@ -281,7 +302,7 @@ export class ZzzGachaUigf extends plugin {
       const parentDir = path.dirname(dirPath)
       if (parentDir !== dirPath) this.ensureDirectoryExists(parentDir)
       fs.mkdirSync(dirPath)
-      logger.debug(`[绝区零][工具] 已创建目录: ${dirPath}`)
+      logger.mark(`[绝区零][导入/导出记录] 已创建目录: ${dirPath}`)
     }
   }
 
@@ -289,69 +310,51 @@ export class ZzzGachaUigf extends plugin {
    * 校验UIGFv4格式
    */
   checkUigfFormat(uigfData) {
-    logger.debug(`[绝区零][导入记录] 校验UIGF格式：`, JSON.stringify(uigfData.info || {}, null, 2))
-    
     if (!uigfData?.info || !uigfData?.nap || !Array.isArray(uigfData.nap)) {
-      throw new Error('UIGF格式不合法，缺少info/nap字段')
+      throw new Error('UIGF格式不合法，缺少info/nap')
     }
-    
     const napItem = uigfData.nap[0]
     if (!napItem?.list || napItem.list.length === 0) {
-      throw new Error('UIGF中无有效抽卡记录（list为空）')
+      throw new Error('UIGF中无有效抽卡记录')
     }
-    
-    logger.debug(`[绝区零][导入记录] UIGF格式校验通过，包含${napItem.list.length}条记录`)
   }
 
   /**
-   * UIGF → 绝区零插件格式
+   * UIGF → 绝区零
    */
   convertUigfToZzz(uigfData, uid) {
-    logger.debug(`[绝区零][导入记录] 开始转换UIGF数据到插件格式`)
-    
-    const zzzData = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
+    const zzzData = POOL_KEYS.reduce((obj, key) => ({
+      ...obj,
+      [key]: []
+    }), {})
     const uigfList = uigfData.nap[0].list
-    
     uigfList.forEach(item => {
       const gachaType = item.uigf_gacha_type || item.gacha_type
       const targetPool = GACHA_TYPE_TO_POOL[String(gachaType)]
-      if (targetPool) {
-        zzzData[targetPool].push({ ...item, uid })
-      } else {
-        logger.debug(`[绝区零][导入记录] 未知的卡池类型：${gachaType}，跳过该记录`)
-      }
+      if (targetPool) zzzData[targetPool].push({
+        ...item,
+        uid
+      })
     })
-    
     const total = Object.values(zzzData).reduce((s, arr) => s + arr.length, 0)
-    logger.debug(`[绝区零][导入记录] UIGF数据转换完成，有效记录数：${total}`)
-    
     if (total === 0) throw new Error('无匹配的绝区零抽卡记录')
     return zzzData
   }
 
   /**
-   * 合并去重 + 时间排序
+   * 合并去重 + 导入时按新→旧倒序排序
    */
   mergeGachaData(oldData, newData) {
-    logger.debug(`[绝区零][导入记录] 开始合并新旧抽卡记录`)
-    
-    const merged = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
+    const merged = POOL_KEYS.reduce((obj, key) => ({
+      ...obj,
+      [key]: []
+    }), {})
     POOL_KEYS.forEach(pool => {
       const all = [...(oldData[pool] || []), ...(newData[pool] || [])]
       const map = new Map()
-      
-      // 按id去重
-      all.forEach(item => {
-        if (item.id && !map.has(item.id)) {
-          map.set(item.id, item)
-        }
-      })
-      
-      // 按时间倒序排序
-      merged[pool] = Array.from(map.values()).sort((a, b) => new Date(b.time) - new Date(a.time))
-      logger.debug(`[绝区零][导入记录] ${pool}：旧记录${oldData[pool]?.length || 0}条 + 新记录${newData[pool]?.length || 0}条 = 合并后${merged[pool].length}条`)
+      all.forEach(item => item.id && !map.has(item.id) && map.set(item.id, item))
+      merged[pool] = Array.from(map.values()).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
     })
-    
     return merged
   }
 
@@ -366,29 +369,34 @@ export class ZzzGachaUigf extends plugin {
   }
 
   /**
-   * 绝区零插件格式 → UIGFv4格式
+   * 绝区零 → UIGFv4，导出时按旧→新正序排序
    */
   convertToUigfV4(rawGacha, uid) {
-    logger.debug(`[绝区零][导出记录] 开始转换插件数据到UIGFv4格式`)
-    
     const list = POOL_KEYS.reduce((l, k) => l.concat(rawGacha[k] || []), [])
     if (list.length === 0) throw new Error('无有效抽卡记录')
+    const sortedList = list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
     
-    const uigfList = list.map(item => ({ ...item, uigf_gacha_type: item.gacha_type }))
+    const uigfList = sortedList.map(item => ({
+      ...item,
+      uigf_gacha_type: item.gacha_type
+    }))
+    
     const now = new Date()
     const exportTime = new Date(now.getTime() + (8 * 60 - now.getTimezoneOffset()) * 60 * 1000)
       .toISOString().slice(0, 19).replace('T', ' ')
-    
-    const uigfData = {
+      
+    return {
       info: {
         export_time: exportTime,
         export_timestamp: Math.floor(now.getTime() / 1000).toString(),
         ...UIGF_CONFIG
       },
-      nap: [{ uid, timezone: 8, lang: 'zh-cn', list: uigfList }]
+      nap: [{
+        uid,
+        timezone: 8,
+        lang: 'zh-cn',
+        list: uigfList
+      }]
     }
-    
-    logger.debug(`[绝区零][导出记录] UIGFv4格式转换完成，包含${list.length}条记录`)
-    return uigfData
   }
 }
