@@ -88,7 +88,7 @@ export class ZzzGachaUigf extends plugin {
       }
 
       const gachaFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
-      logger.debug(`[绝区零][导出记录] ${fileName}文件试读取抽卡记录文件：${gachaFile}`)
+      logger.debug(`[绝区零][导出记录] 文件试读取抽卡记录文件：${gachaFile}`)
       if (!fs.existsSync(gachaFile)) {
         logger.debug(`[绝区零][导出记录] 未找到抽卡记录文件（UID：${uid}）`)
         return await e.reply(`❌ 未找到抽卡记录（UID：${uid}）`, true)
