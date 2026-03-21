@@ -37,8 +37,7 @@ export class ZzzGachaUigf extends plugin {
       dsc: "ZZZ-Plugin抽卡记录导入/导出记录",
       event: "message",
       priority: 300,
-      rule: [
-        {
+      rule: [{
           reg: "^#绝区零(强制)?导出记录$",
           fnc: "zzzToUigf"
         },
@@ -56,7 +55,9 @@ export class ZzzGachaUigf extends plugin {
       const needCreateDirs = [GACHA_BASE_DIR, UIGF_SAVE_DIR, TEMP_FILE_DIR]
       for (const dir of needCreateDirs) {
         if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true })
+          fs.mkdirSync(dir, {
+            recursive: true
+          })
           logger.debug(`[绝区零][导入/导出记录] 自动创建目录：${dir}`)
         } else {
           logger.debug(`[绝区零][导入/导出记录] 目录已存在：${dir}`)
@@ -73,8 +74,10 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导出，群聊请发送【#绝区零强制导出记录】`,
-        false, { at: true }
+        `建议私聊导出，群聊请发送【%强制导出记录】`,
+        false, {
+          at: true
+        }
       )
     }
     let uigfSaveFile = ""
@@ -124,12 +127,16 @@ export class ZzzGachaUigf extends plugin {
     this.e.isForce = !!e.msg.includes("强制")
     if (e.isGroup && !this.e.isForce) {
       return await e.reply(
-        `建议私聊导入，群聊请发送【#绝区零强制导入记录】`,
-        false, { at: true }
+        `建议私聊导入，群聊请发送【%强制导入记录】`,
+        false, {
+          at: true
+        }
       )
     }
     this.setContext("zzzLogJsonFile")
-    await e.reply("请发送UIGFv4格式的JSON文件", false, { at: true })
+    await e.reply("请发送UIGFv4格式的JSON文件", false, {
+      at: true
+    })
     logger.debug(`[绝区零][导入记录] 已设置上下文，等待用户发送文件`)
   }
 
@@ -177,7 +184,9 @@ export class ZzzGachaUigf extends plugin {
             if (groupFileRes?.data?.url) fileUrl = groupFileRes.data.url
           } else {
             logger.debug(`[绝区零][导入记录] 调用 get_private_file_url，file_id：${fileid}`)
-            const privateFileRes = await e.bot.sendApi("get_private_file_url", { file_id: fileid })
+            const privateFileRes = await e.bot.sendApi("get_private_file_url", {
+              file_id: fileid
+            })
             logger.debug(`[绝区零][导入记录] get_private_file_url 返回：`, JSON.stringify(privateFileRes, null, 2))
             if (privateFileRes?.data?.url) fileUrl = privateFileRes.data.url
           }
@@ -192,7 +201,9 @@ export class ZzzGachaUigf extends plugin {
           logger.debug(`[绝区零][导入记录] 文件下载完成：${tempFile}`)
         } else {
           logger.debug(`[绝区零][导入记录] 降级调用 get_file 接口`)
-          const fileRes = await e.bot.sendApi("get_file", { file_id: fileid })
+          const fileRes = await e.bot.sendApi("get_file", {
+            file_id: fileid
+          })
           logger.debug(`[绝区零][导入记录] get_file 返回：`, JSON.stringify(fileRes, null, 2))
           if (!fileRes?.data) throw new Error("获取文件数据失败")
 
@@ -233,9 +244,9 @@ export class ZzzGachaUigf extends plugin {
 
       const newZzzData = this.convertUigfToZzz(uigfData, uid)
       const targetFile = path.join(GACHA_BASE_DIR, `${uid}.json`)
-      const finalZzzData = fs.existsSync(targetFile)
-        ? this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData)
-        : newZzzData
+      const finalZzzData = fs.existsSync(targetFile) ?
+        this.mergeGachaData(JSON.parse(fs.readFileSync(targetFile, 'utf-8')), newZzzData) :
+        newZzzData
 
       fs.writeFileSync(targetFile, JSON.stringify(finalZzzData, null, 2), 'utf-8')
 
@@ -250,7 +261,9 @@ export class ZzzGachaUigf extends plugin {
       }
 
       await e.reply([`✅ UIGF抽卡记录导入成功（UID：${uid}）`, ...msgArr, `总计：${total}条`].join("\n"), true)
-      if (e.isGroup) await e.reply(`已收到${fileName}文件，请撤回`, false, { at: true })
+      if (e.isGroup) await e.reply(`已收到${fileName}文件，请撤回`, false, {
+        at: true
+      })
 
     } catch (err) {
       await e.reply(`❌ 导入失败：${err.message}`, true)
@@ -291,7 +304,10 @@ export class ZzzGachaUigf extends plugin {
    * UIGF → 绝区零本地格式
    */
   convertUigfToZzz(uigfData, uid) {
-    const zzzData = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
+    const zzzData = POOL_KEYS.reduce((obj, key) => ({
+      ...obj,
+      [key]: []
+    }), {})
     let list = uigfData.nap[0].list
     if (list.length > 1) {
       const firstTime = new Date(list[0].time).getTime()
@@ -303,11 +319,27 @@ export class ZzzGachaUigf extends plugin {
       const gachaType = String(item.gacha_type)
       const targetPool = GACHA_TYPE_TO_POOL[gachaType]
       if (!targetPool) continue
-      zzzData[targetPool].push({ ...item, uid, gacha_type: gachaType })
+      const normalized = {
+        uid: String(uid),
+        gacha_id: item.gacha_id ?? "0",
+        gacha_type: gachaType,
+        item_id: Number(item.item_id),
+        count: String(item.count ?? "1"),
+        time: item.time,
+        name: item.name,
+        lang: item.lang ?? "zh-cn",
+        item_type: item.item_type,
+        rank_type: String(item.rank_type),
+        id: String(item.id),
+        square_icon: item.square_icon ?? ""
+      }
+
+      zzzData[targetPool].push(normalized)
     }
 
     const total = Object.values(zzzData).reduce((s, arr) => s + arr.length, 0)
     if (total === 0) throw new Error('无匹配的绝区零抽卡记录')
+
     return zzzData
   }
 
@@ -315,7 +347,10 @@ export class ZzzGachaUigf extends plugin {
    * 合并去重 + 统一倒序（新→旧）
    */
   mergeGachaData(oldData, newData) {
-    const merged = POOL_KEYS.reduce((obj, key) => ({ ...obj, [key]: [] }), {})
+    const merged = POOL_KEYS.reduce((obj, key) => ({
+      ...obj,
+      [key]: []
+    }), {})
     POOL_KEYS.forEach(pool => {
       const all = [...(oldData[pool] || []), ...(newData[pool] || [])]
       const map = new Map()
@@ -346,9 +381,16 @@ export class ZzzGachaUigf extends plugin {
       const gachaType = Object.entries(GACHA_TYPE_TO_POOL).find(([k, v]) => v === poolKey)?.[0]
       if (!gachaType) continue
       const arr = (rawGacha[poolKey] || []).map(item => ({
-        ...item,
-        gacha_type: gachaType,
-        uid
+        uid: String(uid),
+        id: String(item.id),
+        gacha_type: String(gachaType),
+        name: item.name,
+        item_type: item.item_type,
+        rank_type: String(item.rank_type),
+        time: item.time,
+        item_id: String(item.item_id),
+        count: String(item.count ?? "1"),
+        lang: item.lang ?? "zh-cn"
       }))
       list = list.concat(arr)
     }
