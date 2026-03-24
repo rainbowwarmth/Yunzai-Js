@@ -177,7 +177,7 @@ export class ZzzGachaUigf extends plugin {
           if (e.message_type === 'group' || e.isGroup) {
             logger.debug(`[绝区零][导入记录] 调用 get_group_file_url，群号：${e.group_id}，file_id：${fileid}`)
             const groupFileRes = await e.bot.sendApi("get_group_file_url", {
-              group_id: Number(e.group_id),
+              group_id: this.e?.bot?.version?.app_name === "LLOneBot" ? Number(this.e.group_id) : this.e.group_id,
               file_id: fileid
             })
             logger.debug(`[绝区零][导入记录] get_group_file_url 返回：`, JSON.stringify(groupFileRes, null, 2))
